@@ -45,11 +45,12 @@ int speed = 6; // 6 m/s = 21.6 km/h
 #define FN 0
 
 // whether or not there's a jammer
-#define JM 1
+#define JM 0
 
 enum gateway_type {na, m_gw1, m_gw2}; // and 3, 4, 5, ..., 27 are static gateways
 
 int TOTAL_TICKS = 3600;
+//int TOTAL_TICKS = 50;
 
 #define DEBUG_LOG std::cout << "(" << clock_ticks << ")  "   
 
@@ -118,6 +119,9 @@ int fault_range = 10;
 
 area jammer;
 int jamming_range = 50;
+
+area* m_tj[2]; // trajectory for mobile gateways
+area* a_tj[1]; // trajectory for attacker
 
 
 // SF7, 30; SF8, 60; SF9, 90; SF10, 120; SF11, 150; SF12, 180
@@ -762,7 +766,7 @@ void move_regular(int &mx, int &my, int &mx2, int &my2)
 
 void move_random(int &mx, int &my, int &mx2, int &my2)
 {
-	srand(time(NULL));
+//	srand(time(NULL));
     switch (rand() % 4){
     case 0:
         my += speed;
@@ -812,7 +816,7 @@ void move_random(int &mx, int &my, int &mx2, int &my2)
 void move_jammer() // random walk
 {
     int s = 1; // moving speed
-	srand(time(NULL));
+//	srand(time(NULL));
     switch (rand() % 4){
     case 0:
         jammer.y += s;
@@ -893,6 +897,11 @@ x  y  SF  phase which_gateway:
 
 	struct vertex node[VERTEX_NUM];
 
+    // initialize buffers for mobile gateways and attacker
+    m_tj[0] = (area*) malloc(sizeof(area)*TOTAL_TICKS);
+    m_tj[1] = (area*) malloc(sizeof(area)*TOTAL_TICKS);
+    a_tj[0] = (area*) malloc(sizeof(area)*TOTAL_TICKS);
+
     // initialize the data structure for each node
 	for(i = 0; i < VERTEX_NUM; i++)
 	{
@@ -917,91 +926,9 @@ x  y  SF  phase which_gateway:
         node[i].upload_made_just_now = false;
         node[i].upload_via = node[i].which_gw;
 	}
-
     ifs.close();
-///*
-    faulty_comm = new area*[FN];
-    for (int i = 0; i < FN; i++)
-    {
-        faulty_comm[i] = new area[TOTAL_TICKS];
-        srand(i+1);
-        int x = 0;
-        int y = 0;
-        int duration = 0;
-        int tick = 0;
-        while (tick < TOTAL_TICKS)
-        {
-            x = rand() % MAP_WIDTH;
-            y = rand() % MAP_LENGTH;
-            duration = 1 + rand() % 240;
-            for (int x = 0; x < duration; x++)
-            {
-                faulty_comm[i][tick].x = x;
-                faulty_comm[i][tick].y = y;
-                tick++;
-                if (tick >= TOTAL_TICKS) break;
-            }
-        }
 
-        //for (int j = 0; j < 200; j++)
-        //{
-        //    std::cerr << faulty_comm[i][j].x << " ";
-        //    std::cerr << faulty_comm[i][j].y << " ";
-        //}
-        //std::cerr << std::endl;
-    }
-    // re-order according to x coordinate to speed up run-time checks
-    int t = 0, tmp = 0;
-    while (t < TOTAL_TICKS)
-    {
-        for (int i = 0; i < FN; i++)
-        {
-            for (int j = i+1; j < FN; j++)
-            {
-                if (faulty_comm[j][t].x < faulty_comm[i][t].x)
-                {
-                    tmp = faulty_comm[i][t].x;
-                    faulty_comm[i][t].x = faulty_comm[j][t].x;
-                    faulty_comm[j][t].x = tmp;
-                    tmp = faulty_comm[i][t].y;
-                    faulty_comm[i][t].y = faulty_comm[j][t].y;
-                    faulty_comm[j][t].y = tmp;
-                }
-            }
-        }
-        t++;
-    }
-//*/
-
-/* // for debug purpose
-    for (i = 0; i < VERTEX_NUM; i++)
-    {
-        std::cout << node[i].x << ' ' << node[i].y << ' ' << node[i].sf << ' ' << node[i].phase << std::endl;
-    }
-*/
-
-    // Set the initial position of the mobile gateway 1
-    int mx = 625;
-    int my = 625;
-    // Set the initial degree of the mobile gateway 1
-    int mdelta = 0;
-
-    // Set the initial position of the mobile gateway 2
-    int mx2 = 625;
-    int my2 = 625;
-    // Set the initial degree of the mobile gateway 2
-    int mdelta2 = 0;
-
-#if JM == 0
-    jammer.x = 999999;
-    jammer.y = 999999;
-#else
-    jammer.x = 625;
-    jammer.y = 1;
-#endif
-
-
-//std::cerr << "---------- start simulation -----------" << std::endl;
+    // printing headers
     switch (SETTING_TYPE)
     {
     case 2:
@@ -1033,9 +960,113 @@ x  y  SF  phase which_gateway:
     std::cout << "VERTEX_NUM = " << VERTEX_NUM << std::endl;
     std::cerr << "VERTEX_NUM = " << VERTEX_NUM << std::endl;
 
+    std::cout << "TOTAL_TICKS = " << TOTAL_TICKS << std::endl;
+    std::cerr << "TOTAL_TICKS = " << TOTAL_TICKS << std::endl;
+
+    std::cout << "MOBILE_GW_NUM = 2" << std::endl;
+    std::cerr << "MOBILE_GW_NUM = 2" << std::endl;
+
+    std::cout << "CONCURRENT_FAULT_NUM = " << FN << std::endl;
+    std::cerr << "CONCURRENT_FAULT_NUM = " << FN << std::endl;
+
+    std::cout << "ATTACKER_NUM = " << JM << std::endl;
+    std::cerr << "ATTACKER_NUM = " << JM << std::endl;
+
+    std::cout << "FAULT_RANGE = " << fault_range << std::endl;
+    std::cerr << "FAULT_RANGE = " << fault_range << std::endl;
+
+    std::cout << "JAMMING_RANGE = " << jamming_range << std::endl;
+    std::cerr << "JAMMING_RANGE = " << jamming_range << std::endl;
+
+    // initialize faulty communication simulation
+    faulty_comm = new area*[FN];
+    for (int i = 0; i < FN; i++)
+    {
+        faulty_comm[i] = new area[TOTAL_TICKS];
+        srand(i+1);
+        int x = 0;
+        int y = 0;
+        int duration = 0;
+        int tick = 0;
+        while (tick < TOTAL_TICKS)
+        {
+            x = rand() % MAP_WIDTH;
+            y = rand() % MAP_LENGTH;
+            duration = 1 + rand() % 240;
+            for (int x = 0; x < duration; x++)
+            {
+                faulty_comm[i][tick].x = x;
+                faulty_comm[i][tick].y = y;
+                tick++;
+                if (tick >= TOTAL_TICKS) break;
+            }
+        }
+    }
+    // re-order according to x coordinate to speed up run-time checks
+    int t = 0, tmp = 0;
+    while (t < TOTAL_TICKS)
+    {
+        for (int i = 0; i < FN; i++)
+        {
+            for (int j = i+1; j < FN; j++)
+            {
+                if (faulty_comm[j][t].x < faulty_comm[i][t].x)
+                {
+                    tmp = faulty_comm[i][t].x;
+                    faulty_comm[i][t].x = faulty_comm[j][t].x;
+                    faulty_comm[j][t].x = tmp;
+                    tmp = faulty_comm[i][t].y;
+                    faulty_comm[i][t].y = faulty_comm[j][t].y;
+                    faulty_comm[j][t].y = tmp;
+                }
+            }
+        }
+        t++;
+    }
+	// report faulty_comm areas at each moment
+    for (int i = 0; i < FN; i++) {
+        std::cout << "FN " << i << std::endl;
+        for (int j = 0; j < TOTAL_TICKS; j++) {
+            std::cout << faulty_comm[i][j].x << " ";
+            std::cout << faulty_comm[i][j].y << " ";
+        }
+        std::cout << std::endl;
+    }
+
+
+    // Set the initial position of the mobile gateway 1
+    int mx = 625;
+    int my = 625;
+    // Set the initial degree of the mobile gateway 1
+    int mdelta = 0;
+
+    // Set the initial position of the mobile gateway 2
+    int mx2 = 625;
+    int my2 = 625;
+    // Set the initial degree of the mobile gateway 2
+    int mdelta2 = 0;
+
+#if JM == 0
+    jammer.x = 999999;
+    jammer.y = 999999;
+#else
+    jammer.x = 625;
+    jammer.y = 1;
+#endif
+
+// -----------------------------------------
+// "---------- start simulation -----------" 
+// -----------------------------------------
+
     //while (clock_ticks < 1000000) 
     while (clock_ticks < TOTAL_TICKS) 
     {
+        m_tj[0][clock_ticks].x = mx;
+        m_tj[0][clock_ticks].y = my;
+        m_tj[1][clock_ticks].x = mx2;
+        m_tj[1][clock_ticks].y = my2;
+        a_tj[0][clock_ticks].x = jammer.x;
+        a_tj[0][clock_ticks].y = jammer.y;
         update_node (node, mx, my, mx2, my2);
         print_and_clear_upload_matrix (node);
         clock_ticks ++;
@@ -1054,165 +1085,44 @@ No such configuration. This should not compile.
 #endif
     }
 
-
-
-    //std::cout << "---------- Done ------------------------" << std::endl;
-/*
-    int total_upload = 0;
-    int sf1112 = 0;
-    int sf1112_uploads = 0;
-    int sf1112_possible = 0;
-	for (i = 0; i < VERTEX_NUM; i++)
-	{
-        total_upload += ((clock_ticks - node[i].phase)/PERIOD + 1);
-        if (node[i].sf >= 11)
-        {
-            sf1112 ++;
-            sf1112_uploads += ((clock_ticks - node[i].phase)/PERIOD + 1);
-            sf1112_possible += node[i].possible_catches;
-        }
-//        std::cout << node[i].x << " " << node[i].y << " SF = " << node[i].sf << std::endl;
-    }
-    std::cout << "SF1112_NUM = " << sf1112 << std::endl;
-    std::cout << "SF1112 % = " << ((float) sf1112)/((float)VERTEX_NUM)*100 << std::endl;
-//    std::cout << "mdelta = " << mdelta << std::endl;
-    std::cout << "clock ticks = " << clock_ticks << std::endl;
-    std::cout << "A       total uploads = " << total_upload << std::endl;
-    std::cout << "B       sf1112 uploads = " << sf1112_uploads << std::endl;
-    std::cout << "C       sf1112 possible catches = " << sf1112_possible << std::endl;
-    std::cout << "D       sf1112 caughts = " << total_catches << std::endl;
-    std::cout << "E       total energy cost (baseline) = " << total_energy_baseline_sf710 + total_energy_baseline_sf1112 << std::endl;
-    std::cout << "F       total energy cost = " << total_energy_baseline_sf710 + total_energy_sf1112 << std::endl;
-    std::cout << "G       SF1112 energy cost (baseline) = " << total_energy_baseline_sf1112 << std::endl;
-    std::cout << "H       SF1112 energy cost = " << total_energy_sf1112 << std::endl;
-    std::cout << "C/B     sf1112 catch opportunities = " << ((float)sf1112_possible)/((float)sf1112_uploads)*100 << " %" << std::endl;
-    std::cout << "D/A     catch % (near-nodes included) = " << ((float) total_catches)/((float)total_upload)*100 << std::endl;
-    std::cout << "D/B     catch % (near-nodes excluded) = " << ((float) total_catches)/((float)sf1112_uploads)*100 << std::endl;
-    std::cout << "D/C     catch % (from possible ones) = " << ((float) total_catches)/((float)sf1112_possible)*100 << std::endl;
-
-    std::cout << "(E-F)/E energy saving % = " << (total_energy_baseline_sf1112 - total_energy_sf1112)/(total_energy_baseline_sf710 + total_energy_baseline_sf1112)*100 << std::endl;
-
-    std::cout << "(G-H)/G SF1112 energy saving % = " << (total_energy_baseline_sf1112 - total_energy_sf1112)/(total_energy_baseline_sf1112)*100 << std::endl;
-
-    std::cout << "I       total faults experienced = " << total_faults << std::endl;
-    std::cout << "I/A     faults % = " << ((float) total_faults)/((float)total_upload)*100 << std::endl;
-
-    std::cout << "J       sf1112 faults experienced = " << sf1112_faults << " DO NOT USE" << std::endl;
-    std::cout << "J/I     sf1112 faults % (among total faults) = " << ((float) sf1112_faults)/((float)total_faults)*100 << " DO NOT USE" << std::endl;
-
-    std::cout << "-----------------------" << std::endl;
-    std::cout << "total faults  = " << total_faults << std::endl;
-    std::cout << "total faults % = " << ((float) total_faults)/((float)total_upload)*100 << std::endl;
-    std::cout << "total energy saved = " << total_energy_baseline_sf710 + total_energy_sf1112 << std::endl;
-    std::cout << "total energy saved % = " << (total_energy_baseline_sf1112 - total_energy_sf1112)/(total_energy_baseline_sf710 + total_energy_baseline_sf1112)*100 << std::endl;
-
-    std::cerr << "total faults  = " << total_faults << std::endl;
-    std::cerr << "total faults % = " << ((float) total_faults)/((float)total_upload)*100 << std::endl;
-    std::cerr << "total energy saved = " << total_energy_baseline_sf710 + total_energy_sf1112 << std::endl;
-    std::cerr << "total energy saved % = " << (total_energy_baseline_sf1112 - total_energy_sf1112)/(total_energy_baseline_sf710 + total_energy_baseline_sf1112)*100 << std::endl;
-
-    int latency = 0;
-    float total_ratio_baseline = 0.0;
-    int total_real_upload_baseline = 0;
-    int total_misses_baseline = 0;
-    float total_ratio = 0.0;
-    int total_real_upload = 0;
-    int total_misses = 0;
-	for (i = 0; i < VERTEX_NUM; i++)
-	{
-        while (!node[i].buffered_data.empty())
-        {
-            //std::cout << TOTAL_TICKS - node[i].buffered_data.front() << std::endl;
-            total_real_upload ++;
-            if ((TOTAL_TICKS - node[i].buffered_data.front()) > 180)
-            {
-                total_misses ++;
-            }
-            node[i].buffered_data.pop();
-        }
-        while (!node[i].baseline_buffered_data.empty())
-        {
-            if (node[i].sf >= 11)
-            {
-    std::cout << node[i].pid << " yyy " << clock_ticks - node[i].baseline_buffered_data.front() << std::endl;
-                total_real_upload_baseline ++;
-                if ((TOTAL_TICKS - node[i].baseline_buffered_data.front()) > 180)
-                {
-                    total_misses_baseline ++;
-                }
-            }
-            else
-            {
-                total_real_upload_baseline ++;
-                if ((TOTAL_TICKS - node[i].baseline_buffered_data.front()) > 180)
-                {
-                    total_misses_baseline ++;
-                }
-                total_real_upload ++;
-                if ((TOTAL_TICKS - node[i].baseline_buffered_data.front()) > 180)
-                {
-                    total_misses ++;
-                }
-            }
-            node[i].baseline_buffered_data.pop();
-        }
-
-        while (!node[i].latencies_baseline.empty())
-        {
-            total_real_upload_baseline ++;
-            latency = node[i].latencies_baseline.front();
-            if (latency > 180)
-            {
-                total_misses_baseline ++;
-     std::cout << node[i].pid << " xxxx " << latency << std::endl;
-            }
-//          std::cout << node[i].pid << " " << latency << std::endl;
-            node[i].latencies_baseline.pop ();
-        }
-        while (!node[i].latencies.empty())
-        {
-            total_real_upload ++;
-            latency = node[i].latencies.front();
-            if (latency > 180)
-            {
-                total_misses ++;
-            }
-//            std::cout << node[i].pid << " " << latency << std::endl;
-            node[i].latencies.pop ();
-        }
-    }
-//    std::cerr << "  total real upload baseline = " << total_real_upload_baseline << std::endl;
-    total_ratio_baseline = ((float)total_misses_baseline)/((float)total_real_upload_baseline)*100;
-    total_ratio = ((float)total_misses)/((float)total_real_upload)*100;
-
-//    std::cerr << "total miss ratio (baseline) % = " << total_ratio_baseline << std::endl;
-    std::cout << "total miss ratio (baseline) % = " << total_ratio_baseline << std::endl;
-//    std::cerr << "total miss ratio % = " << total_ratio << std::endl;
-    std::cout << "total miss ratio % = " << total_ratio << std::endl;
-    std::cout << "-----------------------" << std::endl;
-
-	for (i = 0; i < VERTEX_NUM; i++)
-	{
-        std::cout << "(Node " << node[i].pid << ") " << node[i].x << " " << node[i].y << " " << node[i].sf << " " << node[i].phase << std::endl;
-    }
-
-	for (i = 0; i < VERTEX_NUM; i++)
-	{
-        if (node[i].sf >= 11)
-        {
-            std::cout << "node " << node[i].pid << " trace = " << node[i].arrival_observed_history << ", uploads = " << node[i].upload_count << ", catches = " << node[i].catches << std::endl;
-            std::cout << "node " << node[i].pid << " real = " << node[i].arrival_real_history << std::endl;
-            free (node[i].arrival_observed_history);
-            free (node[i].arrival_real_history);
-        }
-    }
-*/
-///*
     for (int i = 0; i < FN; i++)
     {
         delete faulty_comm[i];
     }
     delete faulty_comm;
-//*/
+/*
+	for (i = 0; i < VERTEX_NUM; i++)
+	{
+        if (node[i].sf >= 11)
+        {
+//            std::cout << "node " << node[i].pid << " trace = " << node[i].arrival_observed_history << ", uploads = " << node[i].upload_count << ", catches = " << node[i].catches << std::endl;
+//            std::cout << "node " << node[i].pid << " real = " << node[i].arrival_real_history << std::endl;
+            free (node[i].arrival_observed_history); //FIXME
+            free (node[i].arrival_real_history); //FIXME
+        }
+    }
+*/
+    // print trace for mobile gateways
+    std::cout << "Trace for mobile gateway 0:" << std::endl;
+    for (i = 0; i < TOTAL_TICKS; i++) {
+        std::cout << m_tj[0][i].x << " " << m_tj[0][i].y << " ";
+    }
+    std::cout << std::endl;
+    free (m_tj[0]);
+    std::cout << "Trace for mobile gateway 1:" << std::endl;
+    for (i = 0; i < TOTAL_TICKS; i++) {
+        std::cout << m_tj[1][i].x << " " << m_tj[1][i].y << " ";
+    }
+    std::cout << std::endl;
+    free (m_tj[1]);
+
+    // print trace for attacker
+    std::cout << "Trace for attacker:" << std::endl;
+    for (i = 0; i < TOTAL_TICKS; i++) {
+        std::cout << a_tj[0][i].x << " " << a_tj[0][i].y << " ";
+    }
+    std::cout << std::endl;
+    free (a_tj[0]);
+
 	return 0;
 }
