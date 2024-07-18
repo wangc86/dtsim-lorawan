@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Usage: ./run.sh name
+# Usage: ./run-specific.sh a-list-of-names
 
-for configname in $1;
+for configname in $*;
 do
     mkdir ./results/${configname};
     for inputname in `ls ./topos/`;

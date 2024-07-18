@@ -11,7 +11,7 @@ do
         do
             echo "../topos/${i}-${j}-${k}";
             ./a.out ../topos-no-phase/d${i}-${j} > ../topos/${i}-${j}-${k};
-            # sleep to avoid using the same time seed for pseudonumber generator
+            # sleep to avoid using the same time seed for pseudo-random-number generator
             sleep 1
         done
     done
