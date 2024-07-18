@@ -16,7 +16,7 @@
                 An entry (i,j) is zero if no successful upload at the time slot t,
                 and one if sensor i made a successful upload via gateway j at t.
 */
-// Latest update on 2024/7/16
+// Latest update on 2024/7/18
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -42,10 +42,10 @@ enum algorithm_type {ideal, w_prediction, wo_prediction};
 int speed = 6; // 6 m/s = 21.6 km/h
 
 // # of faults at any moment
-#define FN 0
+#define FN 100
 
 // whether or not there's a jammer
-#define JM 0
+#define JM 1
 
 enum gateway_type {na, m_gw1, m_gw2}; // and 3, 4, 5, ..., 27 are static gateways
 
