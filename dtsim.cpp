@@ -16,7 +16,6 @@
                 An entry (i,j) is zero if no successful upload at the time slot t,
                 and one if sensor i made a successful upload via gateway j at t.
 */
-// Latest update on 2024/7/18
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -813,9 +812,9 @@ void move_random(int &mx, int &my, int &mx2, int &my2)
     }
 }
 
-void move_jammer() // random walk
+void move_jammer(int j_speed) // random walk
 {
-    int s = 1; // moving speed
+    int s = j_speed; // moving speed
 //	srand(time(NULL));
     switch (rand() % 4){
     case 0:
@@ -845,9 +844,9 @@ void move_jammer() // random walk
 
 int main(int argc, char* argv[])
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        std::cerr << "Usage: ./a.out [topology file]" << std::endl;
+        std::cerr << "Usage: ./a.out [topology file] jammer-speed" << std::endl;
         return 1;
     }
 
@@ -855,6 +854,7 @@ int main(int argc, char* argv[])
 
 	int i, j, k;	// loop indicator
 	int distance, x_offset, y_offset;
+    int j_speed = atoi(argv[2]);
 	
     std::ifstream ifs (argv[1], std::ifstream::in);
     char discard[100], value[6];
@@ -1081,7 +1081,7 @@ No such configuration. This should not compile.
 #if JM == 0
         ;
 #else
-        move_jammer ();
+        move_jammer (j_speed);
 #endif
     }
 
